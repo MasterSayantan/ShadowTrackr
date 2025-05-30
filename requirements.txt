@@ -2,3 +2,4 @@ Flask==2.2.5
 Flask-SQLAlchemy==3.0.3
 requests==2.31.0
 user-agents==2.2.0
+gunicorn
