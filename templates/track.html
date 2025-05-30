@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tracking...</title>
+    <script>
+        async function sendAdvancedData() {
+            const shortId = "{{ short_id }}";
+
+            // Collect advanced visitor data
+            const data = {
+                screen_size: `${window.screen.width} x ${window.screen.height} @ ${window.screen.colorDepth}bit`,
+                color_scheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light',
+                hdr_screen: (window.matchMedia('(dynamic-range: high)').matches) ? 'Yes' : 'No',
+                gpu: (() => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                        if (!gl) return 'Unavailable';
+                        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                        return debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'Unavailable';
+                    } catch {
+                        return 'Unavailable';
+                    }
+                })(),
+                platform: navigator.platform,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                user_time: new Date().toString(),
+                language: navigator.language,
+                incognito: 'Unknown', // Detecting incognito reliably is complex; placeholder
+                ad_blocker: 'Unknown', // Detecting ad blocker requires external scripts; placeholder
+                orientation: (screen.orientation || {}).type || 'Unknown'
+            };
+
+            try {
+                await fetch(`/track_data/${shortId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } catch (e) {
+                console.error('Failed to send advanced tracking data', e);
+            } finally {
+                // Redirect to original URL after sending data
+                window.location.href = "{{ url_for('track_redirect', short_id=short_id) }}";
+            }
+        }
+
+        window.onload = sendAdvancedData;
+    </script>
+</head>
+<body>
+    <p>Loading, please wait...</p>
+</body>
+</html>

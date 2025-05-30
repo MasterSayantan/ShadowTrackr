@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>ShadowTrackr - Cyberpunk URL Shortener & Tracker</title>
+  <style>
+    /* Reset and base */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #0a0a0a;
+      color: #00fff7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      width: 100vw;
+      height: 100vh;
+    }
+    a {
+      color: #ff00ff;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    a:hover {
+      color: #00ff00;
+      text-decoration: underline;
+    }
+
+    /* Fullscreen Container */
+    .fullscreen-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* URL Input Box */
+    .url-box {
+      background: #111111;
+      border-radius: 16px;
+      box-shadow:
+        0 0 10px #00fff7,
+        0 0 20px #ff00ff,
+        0 0 30px #00ff00;
+      padding: 2rem 3rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Title */
+    h1 {
+      font-weight: 700;
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+      color: #00fff7;
+      text-shadow:
+        0 0 5px #00fff7,
+        0 0 10px #00fff7,
+        0 0 20px #00fff7;
+      animation: slideDown 0.8s ease forwards;
+    }
+
+    /* Form */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Input field */
+    input[type="url"] {
+      background: transparent;
+      border: 2px solid #00fff7;
+      border-radius: 12px;
+      padding: 0.75rem 1rem 0.75rem 3rem;
+      font-size: 1.1rem;
+      color: #00fff7;
+      outline: none;
+      position: relative;
+      transition: border-color 0.4s ease, box-shadow 0.4s ease;
+      box-shadow: 0 0 5px #00fff7 inset;
+    }
+    input[type="url"]::placeholder {
+      color: #00fff7aa;
+      font-style: italic;
+      transition: color 0.3s ease;
+    }
+    input[type="url"]:focus {
+      border-color: #ff00ff;
+      box-shadow:
+        0 0 8px #ff00ff,
+        0 0 15px #ff00ff inset;
+      color: #ff00ff;
+    }
+
+    /* Input icon */
+    .input-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: #00fff7aa;
+      font-size: 1.3rem;
+      transition: color 0.4s ease;
+    }
+    input[type="url"]:focus + .input-icon {
+      color: #ff00ff;
+    }
+
+    /* Button */
+    button {
+      background: #ff00ff;
+      border: none;
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #111;
+      cursor: pointer;
+      box-shadow:
+        0 0 10px #ff00ff,
+        0 0 20px #ff00ff;
+      transition: box-shadow 0.3s ease, background 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    button::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: -50%;
+      width: 200%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, #00ff00, transparent);
+      transform: translateY(-50%) skewX(-20deg);
+      transition: left 0.5s ease;
+      z-index: 0;
+    }
+    button:hover::before {
+      left: 100%;
+    }
+    button:hover {
+      background: #00ff00;
+      box-shadow:
+        0 0 15px #00ff00,
+        0 0 30px #00ff00;
+      color: #000;
+    }
+    button span {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Error message */
+    .error {
+      background: #ff0044;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 5px #ff0044;
+      animation: pulseRed 1.5s infinite alternate;
+    }
+    @keyframes pulseRed {
+      0% { box-shadow: 0 0 5px #ff0044; }
+      100% { box-shadow: 0 0 20px #ff0044; }
+    }
+
+    /* Result box */
+    .result {
+      margin-top: 1.5rem;
+      background: #111111cc;
+      padding: 1rem;
+      border-radius: 12px;
+      font-weight: 700;
+      color: #00ff00;
+      word-break: break-word;
+      box-shadow:
+        0 0 10px #00ff00,
+        0 0 20px #00ff00;
+      position: relative;
+    }
+    .result a {
+      color: #00ff00;
+      text-decoration: underline;
+      transition: color 0.3s ease;
+    }
+    .result a:hover {
+      color: #ff00ff;
+    }
+
+    /* Author Section Styles */
+    #about-author {
+      margin-top: 3rem;
+      padding: 1.5rem 2rem;
+      border: 2px solid #00ff00;
+      border-radius: 12px;
+      background: #111111;
+      box-shadow:
+        0 0 10px #00ff00,
+        0 0 20px #00ff00 inset;
+      color: #00ff00;
+      position: relative;
+      overflow: hidden;
+      animation: fadeInSlide 0.6s ease forwards;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    #about-author:hover {
+      transform: scale(1.05);
+      box-shadow:
+        0 0 20px #00ff00,
+        0 0 40px #00ff00 inset;
+    }
+    #about-author h2 {
+      margin-bottom: 1rem;
+      font-weight: 700;
+      font-size: 1.8rem;
+      text-shadow:
+        0 0 5px #00ff00,
+        0 0 10px #00ff00;
+    }
+    .author-name {
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin-bottom: 0.25rem;
+      text-shadow:
+        0 0 5px #00ff00,
+        0 0 10px #00ff00;
+    }
+    .author-role {
+      font-style: italic;
+      margin-bottom: 1rem;
+      color: #66ff66;
+    }
+    .author-statement {
+      font-size: 1rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+      color: #99ff99;
+    }
+    .author-contact {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+    .icon-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border: 2px solid #00ff00;
+      border-radius: 50%;
+      color: #00ff00;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .icon-link:hover {
+      color: #111;
+      background: #00ff00;
+      box-shadow:
+        0 0 10px #00ff00,
+        0 0 20px #00ff00 inset;
+      transform: scale(1.1);
+      z-index: 10;
+    }
+    .icon {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      stroke: currentColor;
+      transition: all 0.3s ease;
+    }
+
+    /* Animations */
+    @keyframes fadeInSlide {
+      from {
+        opacity: 0;
+        transform: translateX(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="fullscreen-container">
+    <div class="url-box">
+      <h1>ShadowTrackr - Cyberpunk URL Shortener & Tracker</h1>
+      {% if error %}
+        <div class="error">{{ error }}</div>
+      {% endif %}
+      <form method="POST" action="{{ url_for('index') }}">
+        <div style="position: relative;">
+          <input type="url" id="original_url" name="original_url" placeholder="Enter URL to shorten and track" required />
+          <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #00fff7aa;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 14.828a4 4 0 01-5.656-5.656m6.364 6.364L21 21" />
+          </svg>
+        </div>
+        <button type="submit"><span>Generate Tracking Link</span></button>
+      </form>
+      {% if short_url %}
+        <div class="result">
+          Shortened URL: <a href="{{ short_url }}" target="_blank">{{ short_url }}</a><br />
+          View stats: <a href="{{ url_for('stats', short_id=short_url.split('/')[-1]) }}" target="_blank">Dashboard</a><br />
+          <a href="{{ url_for('track', short_id=short_url.split('/')[-1]) }}" target="_blank">Tracking Page (Advanced Data)</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <section id="about-author" class="author-card">
+      <h2>About the Author</h2>
+      <p class="author-name">Sayantan Saha</p>
+      <p class="author-role">Ethical Hacker, OSINT Analyst, Red Team Tool Developer</p>
+      <p class="author-statement">"Passionate about building tools that empower individuals and organizations to uncover, track, and analyze digital intelligence with precision and responsibility."</p>
+      <div class="author-contact">
+        <a href="mailto:sahasayantan422@gmail.com" class="icon-link email" title="Email">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </a>
+        <a href="https://www.linkedin.com/in/mastersayantan/" target="_blank" class="icon-link linkedin" title="LinkedIn">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="icon" viewBox="0 0 24 24"><path d="M4.98 3.5C4.98 4.88 3.88 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1 4.98 2.12 4.98 3.5zM0 8h5v16H0V8zm7.5 0h4.8v2.2h.1c.7-1.3 2.4-2.7 4.9-2.7 5.2 0 6.2 3.4 6.2 7.8V24h-5v-7.2c0-1.7 0-3.9-2.4-3.9-2.4 0-2.8 1.9-2.8 3.8V24h-5V8z"/></svg>
+        </a>
+        <a href="https://github.com/mastersayantan" target="_blank" class="icon-link github" title="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="icon" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.11.82-.26.82-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.757-1.333-1.757-1.09-.745.083-.73.083-.73 1.205.085 1.84 1.236 1.84 1.236 1.07 1.835 2.807 1.305 3.492.997.108-.775.418-1.305.76-1.605-2.665-.3-5.466-1.335-5.466-5.93 0-1.31.47-2.38 1.236-3.22-.124-.303-.536-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.5 11.5 0 013.003-.404c1.02.005 2.045.138 3.003.404 2.29-1.552 3.296-1.23 3.296-1.23.655 1.653.243 2.873.12 3.176.77.84 1.235 1.91 1.235 3.22 0 4.61-2.807 5.625-5.48 5.92.43.37.823 1.1.823 2.22v3.293c0 .32.218.694.825.576C20.565 21.796 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        </a>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

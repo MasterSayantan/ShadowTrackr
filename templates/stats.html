@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShadowTrackr - Stats for {{ urlmap.short_id }}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #0a0a0a;
+      color: #00fff7;
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    a {
+      color: #ff00ff;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    a:hover {
+      color: #00ff00;
+      text-decoration: underline;
+    }
+
+    .container {
+      max-width: 100vw;
+      margin: auto;
+      background: #111111;
+      border-radius: 16px;
+      box-shadow:
+        0 0 10px #00fff7,
+        0 0 20px #ff00ff,
+        0 0 30px #00ff00;
+      padding: 2rem 3rem;
+      overflow-x: auto;
+    }
+
+    h1, h2 {
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: #00fff7;
+      text-shadow:
+        0 0 5px #00fff7,
+        0 0 10px #00fff7,
+        0 0 20px #00fff7;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 0 10px #00fff7,
+        0 0 20px #ff00ff;
+    }
+
+    thead tr {
+      background: #222222;
+      color: #ff00ff;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    tbody tr {
+      background: #111111;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+    }
+    tbody tr:nth-child(even) {
+      background: #1a1a1a;
+    }
+    tbody tr:hover {
+      transform: translateY(-5px);
+      box-shadow:
+        0 0 10px #00ff00,
+        0 0 20px #00ff00;
+      background: #222222;
+      color: #00ff00;
+    }
+
+    th, td {
+      padding: 1rem 1.5rem;
+      text-align: left;
+      border-bottom: 1px solid #333333;
+      white-space: nowrap;
+    }
+
+    /* Modal */
+    #detailsModal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #222;
+      color: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 600px;
+      max-height: 70vh;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow:
+        0 0 15px #00fff7,
+        0 0 30px #ff00ff;
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    #detailsModal h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: #00fff7;
+      text-shadow:
+        0 0 5px #00fff7,
+        0 0 10px #00fff7;
+    }
+
+    #detailsModal button {
+      background: #ff00ff;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      float: right;
+      transition: background 0.3s ease;
+    }
+
+    #detailsModal button:hover {
+      background: #00ff00;
+      color: #111;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Statistics for Short URL: {{ urlmap.short_id }}</h1>
+    <h2>Original URL: <a href="{{ urlmap.original_url }}" target="_blank">{{ urlmap.original_url }}</a></h2>
+    <p>Total Clicks: {{ visits|length }}</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>IP Address</th>
+          <th>Country</th>
+          <th>City</th>
+          <th>Browser</th>
+          <th>Operating System</th>
+          <th>Referrer</th>
+          <th>More</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for visit in visits %}
+        <tr>
+          <td>{{ visit.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          <td>{{ visit.ip_address }}</td>
+          <td>{{ visit.country }}</td>
+          <td>{{ visit.city }}</td>
+          <td>{{ visit.browser }}</td>
+          <td>{{ visit.os }}</td>
+          <td>{{ visit.referrer or 'Direct' }}</td>
+          <td><a href="#" onclick="showDetails({{ visit.id }}); return false;">More Info</a></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8">No visits recorded yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <p style="margin-top: 1rem; font-style: italic; color: #00ff00;">
+      Note: ISP and Hostname data are fetched from IP lookup services and may not always be available for private or localhost IPs.
+    </p>
+
+    <div id="detailsModal">
+      <h3>Advanced Visitor Details</h3>
+      <button onclick="document.getElementById('detailsModal').style.display='none';">Close</button>
+      <table style="width:100%; margin-top:10px; border-collapse: collapse;">
+        <tbody id="detailsBody"></tbody>
+      </table>
+    </div>
+
+    <script>
+      const visitsData = {
+        {% for visit in visits %}
+        {{ visit.id }}: {
+          screen_size: "{{ visit.screen_size or 'N/A' }}",
+          color_scheme: "{{ visit.color_scheme or 'N/A' }}",
+          hdr_screen: "{{ visit.hdr_screen or 'N/A' }}",
+          gpu: "{{ visit.gpu or 'N/A' }}",
+          platform: "{{ visit.platform or 'N/A' }}",
+          timezone: "{{ visit.timezone or 'N/A' }}",
+          user_time: "{{ visit.user_time or 'N/A' }}",
+          language: "{{ visit.language or 'N/A' }}",
+          incognito: "{{ visit.incognito or 'N/A' }}",
+          ad_blocker: "{{ visit.ad_blocker or 'N/A' }}",
+          orientation: "{{ visit.orientation or 'N/A' }}",
+          hostname: "{{ visit.hostname or 'N/A' }}",
+          isp: "{{ visit.isp or 'N/A' }}"
+        },
+        {% endfor %}
+      };
+
+      function showDetails(visitId) {
+        const details = visitsData[visitId];
+        const detailsBody = document.getElementById('detailsBody');
+        detailsBody.innerHTML = '';
+        for (const [key, value] of Object.entries(details)) {
+          const row = document.createElement('tr');
+          const keyCell = document.createElement('td');
+          keyCell.style.fontWeight = 'bold';
+          keyCell.style.padding = '4px 8px';
+          keyCell.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const valueCell = document.createElement('td');
+          valueCell.style.padding = '4px 8px';
+          valueCell.textContent = value;
+          row.appendChild(keyCell);
+          row.appendChild(valueCell);
+          detailsBody.appendChild(row);
+        }
+        document.getElementById('detailsModal').style.display = 'block';
+      }
+    </script>
+  </div>
+</body>
+</html>
