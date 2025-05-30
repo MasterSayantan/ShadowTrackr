@@ -48,21 +48,69 @@ class Visit(db.Model):
 def generate_short_id(num_chars=6):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=num_chars))
 
-def get_geolocation(ip):
+import time
+import logging
+
+def get_ip_info(ip):
+    """
+    Fetch country, city, hostname, and ISP info for the given IP.
+    Returns a dict with keys: country, city, hostname, isp.
+    Handles localhost and private IPs gracefully.
+    Retries once after 1 second if incomplete data is returned.
+    Logs incomplete data for debugging.
+    Uses fallback to ipinfo.io API if ipapi.co fails or returns incomplete data.
+    Uses additional fallback to ipgeolocation.io API for better city accuracy.
+    """
+    API_KEY = "7417be12432845b08fb3339c3f127827"
+    info = {
+        'country': 'Unknown',
+        'city': 'Unknown',
+        'hostname': 'Unknown',
+        'isp': 'Unknown'
+    }
     try:
-        # Handle localhost IPs
         if ip == '127.0.0.1' or ip == '::1':
-            return 'Localhost', 'Localhost'
-        # Use ipapi.co with fields to ensure country_name and city are included
-        response = requests.get(f'https://ipapi.co/{ip}/json/?fields=country_name,city')
+            info['country'] = 'Localhost'
+            info['city'] = 'Localhost'
+            info['hostname'] = 'Localhost'
+            info['isp'] = 'Localhost'
+            return info
+        for attempt in range(2):  # Try twice
+            response = requests.get(f'https://ipapi.co/{ip}/json/?fields=country_name,city,org,hostname')
+            if response.status_code == 200:
+                data = response.json()
+                info['country'] = data.get('country_name', 'Unknown') or 'Unknown'
+                info['city'] = data.get('city', 'Unknown') or 'Unknown'
+                info['hostname'] = data.get('hostname', 'Unknown') or 'Unknown'
+                info['isp'] = data.get('org', 'Unknown') or 'Unknown'
+                # Check for incomplete data
+                if all(info.values()) and 'Unknown' not in info.values():
+                    return info
+                else:
+                    logging.warning(f"❌ Incomplete geodata for IP {ip}: {data}")
+            if attempt == 0:
+                time.sleep(1)  # Wait before retry
+        # Fallback to ipinfo.io API
+        response = requests.get(f'https://ipinfo.io/{ip}/json')
         if response.status_code == 200:
             data = response.json()
-            # Optional: log data for debugging
-            # print(f"Geolocation data for IP {ip}: {data}")
-            return data.get('country_name', ''), data.get('city', '')
-    except Exception:
-        pass
-    return '', ''
+            info['country'] = data.get('country', info['country'])
+            city_region = data.get('city', '') + ', ' + data.get('region', '')
+            info['city'] = city_region.strip(', ') if city_region.strip(', ') else info['city']
+            info['hostname'] = data.get('hostname', info['hostname'])
+            info['isp'] = data.get('org', info['isp'])
+        # Additional fallback to ipgeolocation.io API
+        if info['city'] == 'Unknown' or info['city'] == '':
+            response = requests.get(f'https://api.ipgeolocation.io/ipgeo?apiKey={API_KEY}&ip={ip}&fields=city,country_name,isp,hostname')
+            if response.status_code == 200:
+                data = response.json()
+                info['country'] = data.get('country_name', info['country'])
+                info['city'] = data.get('city', info['city'])
+                info['hostname'] = data.get('hostname', info['hostname'])
+                info['isp'] = data.get('isp', info['isp'])
+    except Exception as e:
+        logging.error(f"Error fetching IP info for {ip}: {e}")
+    return info
 
 def get_client_ip():
     # Prefer X-Forwarded-For header for real client IP (may contain multiple IPs)
@@ -105,7 +153,7 @@ def track(short_id):
     ip = get_client_ip()
     ua_string = request.headers.get('User-Agent', '')
     ua = user_agents.parse(ua_string)
-    country, city = get_geolocation(ip)
+    ip_info = get_ip_info(ip)
     # Create visit with basic info first
     visit = Visit(
         urlmap_id=urlmap.id,
@@ -114,8 +162,10 @@ def track(short_id):
         browser=f"{ua.browser.family} {ua.browser.version_string}",
         os=f"{ua.os.family} {ua.os.version_string}",
         referrer=request.referrer or '',
-        country=country,
-        city=city
+        country=ip_info['country'],
+        city=ip_info['city'],
+        hostname=ip_info['hostname'],
+        isp=ip_info['isp']
     )
     db.session.add(visit)
     db.session.commit()
@@ -146,30 +196,17 @@ def track_data(short_id):
     visit.ad_blocker = data.get('ad_blocker')
     visit.orientation = data.get('orientation')
 
-    # Update city and country if missing or empty
-    if not visit.city or not visit.country:
+    # Update city, country, hostname, and ISP if missing or empty
+    if not visit.city or not visit.country or not visit.hostname or not visit.isp:
         try:
             ip = visit.ip_address
-            if ip and ip != '127.0.0.1' and ip != '::1':
-                response = requests.get(f'https://ipapi.co/{ip}/json/?fields=country_name,city')
-                if response.status_code == 200:
-                    ip_data = response.json()
-                    visit.country = ip_data.get('country_name', visit.country)
-                    visit.city = ip_data.get('city', visit.city)
+            ip_info = get_ip_info(ip)
+            visit.country = ip_info['country']
+            visit.city = ip_info['city']
+            visit.hostname = ip_info['hostname']
+            visit.isp = ip_info['isp']
         except Exception:
             pass
-
-    # Optionally, fetch hostname and ISP from IP using external API
-    try:
-        ip = visit.ip_address
-        if ip and ip != '127.0.0.1' and ip != '::1':
-            response = requests.get(f'https://ipapi.co/{ip}/json/?fields=org,hostname')
-            if response.status_code == 200:
-                ip_data = response.json()
-                visit.isp = ip_data.get('org')
-                visit.hostname = ip_data.get('hostname')
-    except Exception:
-        pass
 
     db.session.commit()
     return jsonify({'status': 'success'})
@@ -191,7 +228,7 @@ def pixel(short_id):
     ip = get_client_ip()
     ua_string = request.headers.get('User-Agent', '')
     ua = user_agents.parse(ua_string)
-    country, city = get_geolocation(ip)
+    ip_info = get_ip_info(ip)
     visit = Visit(
         urlmap_id=urlmap.id,
         ip_address=ip,
@@ -199,8 +236,10 @@ def pixel(short_id):
         browser=f"{ua.browser.family} {ua.browser.version_string}",
         os=f"{ua.os.family} {ua.os.version_string}",
         referrer=request.referrer or '',
-        country=country,
-        city=city
+        country=ip_info['country'],
+        city=ip_info['city'],
+        hostname=ip_info['hostname'],
+        isp=ip_info['isp']
     )
     db.session.add(visit)
     db.session.commit()
